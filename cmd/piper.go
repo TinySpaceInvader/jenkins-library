@@ -93,6 +93,8 @@ func Execute() {
 	rootCmd.AddCommand(GctsCloneRepositoryCommand())
 	rootCmd.AddCommand(JsonApplyPatchCommand())
 	rootCmd.AddCommand(KanikoExecuteCommand())
+	rootCmd.AddCommand(AbapEnvironmentASimulateCommand())
+	rootCmd.AddCommand(AbapEnvironmentAssemblyCommand())
 
 	addRootFlags(rootCmd)
 	if err := rootCmd.Execute(); err != nil {

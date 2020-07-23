@@ -1,0 +1,176 @@
+metadata:
+    name: abapEnvironmentAssembly
+    description: Creates a package
+    longDescription: |
+      Whatever      
+spec:
+  inputs:
+    secrets:
+      - name: abapCredentialsId
+        description: Jenkins credentials ID containing user and password to authenticate to the Cloud Platform ABAP Environment system or the Cloud Foundry API
+        type: jenkins
+    params:
+      - name: cfApiEndpoint
+        type: string
+        description: Cloud Foundry API endpoint
+        scope:
+        - PARAMETERS
+        - STAGES
+        - STEPS
+        - GENERAL
+        mandatory: false
+        aliases:
+          - name: cloudFoundry/apiEndpoint
+      - name: cfOrg
+        type: string
+        description: CF org
+        scope:
+        - PARAMETERS
+        - STAGES
+        - STEPS
+        - GENERAL
+        mandatory: false
+        aliases:
+          - name: cloudFoundry/org
+      - name: cfSpace
+        type: string
+        description: CF Space
+        scope:
+        - PARAMETERS
+        - STAGES
+        - STEPS
+        - GENERAL
+        mandatory: false
+        aliases:
+          - name: cloudFoundry/space
+      - name: cfServiceInstance
+        type: string
+        description: Parameter of ServiceInstance Name to delete CloudFoundry Service
+        scope:
+        - PARAMETERS
+        - STAGES
+        - STEPS
+        - GENERAL
+        mandatory: false
+        aliases:
+          - name: cloudFoundry/serviceInstance
+      - name: cfServiceKeyName
+        type: string
+        description: Parameter of CloudFoundry Service Key to be created
+        scope:
+        - PARAMETERS
+        - STAGES
+        - STEPS
+        - GENERAL
+        mandatory: false
+        aliases:
+          - name: cloudFoundry/serviceKeyName
+        resourceRef:
+          - name: commonPipelineEnvironment
+            param: cfServiceKeyName
+      - name: host
+        description: Specifies the host address of the SAP Cloud Platform ABAP Environment system
+        type: string
+        mandatory: false
+        scope:
+        - PARAMETERS
+        - STAGES
+        - STEPS
+      - name: username
+        type: string
+        description: User or E-Mail for CF
+        scope:
+        - PARAMETERS
+        - STAGES
+        - STEPS
+        mandatory: true
+      - name: password
+        type: string
+        description: User Password for CF User
+        scope:
+        - PARAMETERS
+        - STAGES
+        - STEPS
+        mandatory: true
+      - name: PackageType
+        type: string
+        description: PackageType
+        mandatory: true
+        possibleValues:
+          - AOI
+          - CSP
+          - CPK
+        resourceRef:
+          - name: commonPipelineEnvironment
+            param: PackageType
+        scope:
+        - GENERAL
+        - PARAMETERS
+        - STAGES
+        - STEPS
+      - name: PackageName
+        type: string
+        description: Package Name
+        mandatory: true
+        resourceRef:
+          - name: commonPipelineEnvironment
+            param: PackageName
+        scope:
+        - GENERAL
+        - PARAMETERS
+        - STAGES
+        - STEPS
+      - name: SWC
+        type: string
+        description: SWC
+        mandatory: true
+        resourceRef:
+          - name: commonPipelineEnvironment
+            param: SWC
+        scope:
+        - GENERAL
+        - PARAMETERS
+        - STAGES
+        - STEPS
+      - name: CVERS
+        type: string
+        description: Cvers
+        mandatory: true
+        resourceRef:
+          - name: commonPipelineEnvironment
+            param: CVERS
+        scope:
+        - GENERAL
+        - PARAMETERS
+        - STAGES
+        - STEPS
+      - name: Namespace
+        type: string
+        description: Namespace
+        mandatory: true
+        resourceRef:
+          - name: commonPipelineEnvironment
+            param: Namespace
+        scope:
+        - GENERAL
+        - PARAMETERS
+        - STAGES
+        - STEPS
+      - name: PreviousDeliveryCommit
+        type: string
+        description: Previous Delivery Commit
+        mandatory: true
+        resourceRef:
+          - name: commonPipelineEnvironment
+            param: PreviousDeliveryCommit
+        scope:
+        - GENERAL
+        - PARAMETERS
+        - STAGES
+        - STEPS
+  outputs:
+    resources:
+      - name: commonPipelineEnvironment
+        type: piperEnvironment
+        params:
+          - name: SAR_XML
