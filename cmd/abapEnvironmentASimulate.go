@@ -32,7 +32,6 @@ func runAbapEnvironmentASimulate(config *abapEnvironmentASimulateOptions, teleme
 	log.Entry().Infof("CVERS %v", config.CVERS)
 	log.Entry().Infof("Namespace %v", config.Namespace)
 	log.Entry().Infof("commit %v", config.PreviousDeliveryCommit)
-	log.Entry().Infof("service key %v", config.CfServiceKeyName)
 	// ins environment schreibne
 	commonPipelineEnvironment.PackageType = config.PackageType
 	commonPipelineEnvironment.PackageName = config.PackageName
@@ -40,7 +39,6 @@ func runAbapEnvironmentASimulate(config *abapEnvironmentASimulateOptions, teleme
 	commonPipelineEnvironment.CVERS = config.CVERS
 	commonPipelineEnvironment.Namespace = config.Namespace
 	commonPipelineEnvironment.PreviousDeliveryCommit = config.PreviousDeliveryCommit
-	commonPipelineEnvironment.cfServiceKeyName = config.CfServiceKeyName
 	commonPipelineEnvironment.persist(".pipeline", "commonPipelineEnvironment")
 	return nil
 }

@@ -42,29 +42,9 @@ func abapEnvironmentAssembly(config abapEnvironmentAssemblyOptions, telemetryDat
 }
 
 func runAbapEnvironmentAssembly(config *abapEnvironmentAssemblyOptions, telemetryData *telemetry.CustomData, command command.ExecRunner, commonPipelineEnvironment *abapEnvironmentAssemblyCommonPipelineEnvironment) error {
-
-	log.Entry().Info("Aus dem Common Env")
-	log.Entry().Infof("package Type %v", config.PackageType)
-	log.Entry().Infof("packageName %v", config.PackageName)
-	log.Entry().Infof("SWC %v", config.SWC)
-	log.Entry().Infof("CVERS %v", config.CVERS)
-	log.Entry().Infof("Namespace %v", config.Namespace)
-	log.Entry().Infof("commit %v", config.PreviousDeliveryCommit)
-	log.Entry().Infof("service key %v", config.CfServiceKeyName)
-
-	log.Entry().Info("user/pwd")
-	log.Entry().Infof("user %v", config.Username)
-	log.Entry().Infof("pwd %v", config.Password)
-
-	// log.Entry().Infof("download!")
-	// err := testDownload(config)
-	// log.Entry().Infof("download finish")
-	fmt.Println(GeneralConfig.EnvRootPath) // "commonPipelineEnvironment" //SAR_XML
 	// err := testDownload(config)
 	err := test1(config)
-	if err != nil {
-		fmt.Println(err)
-	}
+	// err := testGet(config)
 	return err
 }
 
@@ -220,7 +200,9 @@ func (in inputForPost) String() string {
 
 func (conn *connector) setConnectionDetails(config abapEnvironmentAssemblyOptions) error {
 	if config.Host == "" {
-		return conn.setConnectionDetailsFromCF(config)
+		err := conn.setConnectionDetailsFromCF(config)
+		conn.Baseurl = conn.Baseurl + "/sap/opu/odata/BUILD/CORE_SRV"
+		return err
 	}
 	conn.DownloadClient.SetOptions(piperhttp.ClientOptions{
 		Username: config.Username,
@@ -232,12 +214,9 @@ func (conn *connector) setConnectionDetails(config abapEnvironmentAssemblyOption
 		Password:  config.Password,
 		CookieJar: cookieJar,
 	})
-	conn.Baseurl = config.Host
+	conn.Baseurl = config.Host + "/sap/opu/odata/BUILD/CORE_SRV"
 	return nil
 }
-
-// var cfReadServiceKey = cloudfoundry.ReadServiceKeyAbapEnvironment
-// var cfReadServiceKey = cloudfoundry.CFUtils{Exec: &command.Command{}}.ReadServiceKeyAbapEnvironment
 
 var cf = cloudfoundry.CFUtils{Exec: &command.Command{}}
 var cfReadServiceKey = cf.ReadServiceKeyAbapEnvironment
@@ -253,23 +232,30 @@ func (conn *connector) setConnectionDetailsFromCF(config abapEnvironmentAssembly
 		CfServiceKey:      config.CfServiceKeyName,
 	}
 	if cfconfig.CfServiceInstance == "" || cfconfig.CfOrg == "" || cfconfig.CfAPIEndpoint == "" || cfconfig.CfSpace == "" || cfconfig.CfServiceKey == "" {
-		//TODO welches Szenario?
-		return errors.New("Parameters missing. Please provide EITHER the Host of the ABAP server OR the Cloud Foundry ApiEndpoint, Organization, Space, Service Instance and a corresponding Service Key for the Communication Scenario SAP_COM_0510")
+		return errors.New("Parameters missing. Please provide EITHER the Host of the ABAP server OR the Cloud Foundry ApiEndpoint, Organization, Space, Service Instance and a corresponding Service Key for the Communication Scenario SAP_COM_0582")
 	}
 	abapServiceKey, err := cfReadServiceKey(cfconfig, true)
 	if err != nil {
 		return fmt.Errorf("Reading Service Key failed: %w", err)
 	}
+	//TODO delete
+	// log.Entry().Info("service key")
+	// log.Entry().Info(abapServiceKey.Abap)
+	// log.Entry().Info(abapServiceKey.Abap.Username)
+	// log.Entry().Info(abapServiceKey.Abap.Password)
+	// log.Entry().Info(abapServiceKey.URL)
+
 	conn.DownloadClient.SetOptions(piperhttp.ClientOptions{
 		Username: abapServiceKey.Abap.Username,
 		Password: abapServiceKey.Abap.Password,
 	})
+	cookieJar, _ := cookiejar.New(nil)
 	conn.Client.SetOptions(piperhttp.ClientOptions{
-		Username: abapServiceKey.Abap.Username,
-		Password: abapServiceKey.Abap.Password,
+		Username:  abapServiceKey.Abap.Username,
+		Password:  abapServiceKey.Abap.Password,
+		CookieJar: cookieJar,
 	})
 	conn.Baseurl = abapServiceKey.URL
-	log.Entry().Infof("service key %v", abapServiceKey.Abap)
 	return nil
 }
 
@@ -283,7 +269,7 @@ func (conn *connector) setupAttributes(inputclient piperhttp.Sender) {
 }
 
 func (conn *connector) getToken() error {
-	conn.Header["X-Csrf-Token"] = []string{"fetch"}
+	conn.Header["X-CSRF-Token"] = []string{"Fetch"}
 	response, err := conn.Client.SendRequest("HEAD", conn.Baseurl, nil, conn.Header, nil)
 	if err != nil {
 		return fmt.Errorf("Fetching Xcsrf-Token failed: %w", err)
@@ -563,7 +549,10 @@ func test1(config *abapEnvironmentAssemblyOptions) error {
 
 	conn := new(connector)
 	conn.setupAttributes(&piperhttp.Client{})
-	conn.setConnectionDetails(*config)
+	err := conn.setConnectionDetails(*config)
+	if err != nil {
+		return err
+	}
 	build1 := build{
 		connector: *conn,
 		// BuildID:   "ABIFNLDCSQPNVKWNGL2US3IB4Q",
@@ -601,10 +590,10 @@ func test1(config *abapEnvironmentAssemblyOptions) error {
 		},
 	}
 
-	fmt.Println("Phase")
-	fmt.Println("BUILD_" + config.PackageType)
-
-	if err := build1.start("test1", valuesInput); err != nil {
+	//TODO phase build_aoi etc testten
+	// phase := "BUILD_" + config.PackageType
+	phase := "test1"
+	if err := build1.start(phase, valuesInput); err != nil {
 		return err
 	}
 	build1.poll(15, 60)
@@ -613,7 +602,7 @@ func test1(config *abapEnvironmentAssemblyOptions) error {
 	build1.getResults()
 	result, err := build1.getResult("HT-6100.JPG")
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 	fmt.Println(result.Mimetype)
 	build1.printLogs()
@@ -627,35 +616,16 @@ func test1(config *abapEnvironmentAssemblyOptions) error {
 	}
 
 	return nil
-	// build1.get()
-	// build1.printLogs()
-
-	// 	// build.start("test1", valuesInput)
-	// 	// build.poll(15, 60)
-	// 	build1.get()
-
-	// 	build2 := build{
-	// 		connector: *conn,
-	// 		BuildID:   "ABIFNLDCSQPNVKWNGL2US3IB4X",
-	// 	}
-	// 	build2.get()
-	// 	// build.getValues()
-	// 	// build.getTasks()
-	// 	// build.getLogs()
-	// 	// build.printLogs()
-	// 	// build.getResults()
-	// 	// result, err := build.getResult("HT-6100.JPG")
-	// 	// if err != nil {
-	// 	// 	fmt.Println(err)
-	// 	// }
-	// 	// result.download()
 }
 
 func testDownload(config *abapEnvironmentAssemblyOptions) error {
 
 	conn := new(connector)
 	conn.setupAttributes(&piperhttp.Client{})
-	conn.setConnectionDetails(*config)
+	err := conn.setConnectionDetails(*config)
+	if err != nil {
+		return err
+	}
 	b := build{
 		connector: *conn,
 		BuildID:   "ABIFNLDCSQPOVJOUDMJG2M37OU",
@@ -680,6 +650,22 @@ func createTempDir() string {
 		log.Entry().WithError(err).WithField("path", tmpFolder).Debug("Creating temp directory failed")
 	}
 	return tmpFolder
+}
+
+func testGet(config *abapEnvironmentAssemblyOptions) error {
+
+	conn := new(connector)
+	conn.setupAttributes(&piperhttp.Client{})
+	conn.setConnectionDetails(*config)
+	b := build{
+		connector: *conn,
+		BuildID:   "ABIFNLDCSQPOVJOUDMJG2M37OU",
+	}
+	err := b.get()
+	if err != nil {
+		return err
+	}
+	return err
 }
 
 // ############################ delete ende ##################

@@ -63,11 +63,9 @@ spec:
         - STEPS
         - GENERAL
         mandatory: false
+        default: SAP_COM_0582
         aliases:
           - name: cloudFoundry/serviceKeyName
-        resourceRef:
-          - name: commonPipelineEnvironment
-            param: cfServiceKeyName
       - name: host
         description: Specifies the host address of the SAP Cloud Platform ABAP Environment system
         type: string

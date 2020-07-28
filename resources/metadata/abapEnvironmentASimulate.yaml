@@ -65,18 +65,6 @@ spec:
             - PARAMETERS
             - STAGES
             - STEPS
-        - name: cfServiceKeyName
-          type: string
-          description: Parameter of CloudFoundry Service Key to be created
-          scope:
-            - PARAMETERS
-            - STAGES
-            - STEPS
-            - GENERAL
-          mandatory: false
-          # default: SAP_COM_0510
-          aliases:
-          - name: cloudFoundry/serviceKeyName
     outputs:
       resources:
         - name: commonPipelineEnvironment
@@ -88,4 +76,3 @@ spec:
             - name: CVERS
             - name: Namespace
             - name: PreviousDeliveryCommit
-            - name: cfServiceKeyName

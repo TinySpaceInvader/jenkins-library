@@ -121,7 +121,7 @@ func addAbapEnvironmentAssemblyFlags(cmd *cobra.Command, stepConfig *abapEnviron
 	cmd.Flags().StringVar(&stepConfig.CfOrg, "cfOrg", os.Getenv("PIPER_cfOrg"), "CF org")
 	cmd.Flags().StringVar(&stepConfig.CfSpace, "cfSpace", os.Getenv("PIPER_cfSpace"), "CF Space")
 	cmd.Flags().StringVar(&stepConfig.CfServiceInstance, "cfServiceInstance", os.Getenv("PIPER_cfServiceInstance"), "Parameter of ServiceInstance Name to delete CloudFoundry Service")
-	cmd.Flags().StringVar(&stepConfig.CfServiceKeyName, "cfServiceKeyName", os.Getenv("PIPER_cfServiceKeyName"), "Parameter of CloudFoundry Service Key to be created")
+	cmd.Flags().StringVar(&stepConfig.CfServiceKeyName, "cfServiceKeyName", `SAP_COM_0582`, "Parameter of CloudFoundry Service Key to be created")
 	cmd.Flags().StringVar(&stepConfig.Host, "host", os.Getenv("PIPER_host"), "Specifies the host address of the SAP Cloud Platform ABAP Environment system")
 	cmd.Flags().StringVar(&stepConfig.Username, "username", os.Getenv("PIPER_username"), "User or E-Mail for CF")
 	cmd.Flags().StringVar(&stepConfig.Password, "password", os.Getenv("PIPER_password"), "User Password for CF User")
@@ -186,7 +186,7 @@ func abapEnvironmentAssemblyMetadata() config.StepData {
 					},
 					{
 						Name:        "cfServiceKeyName",
-						ResourceRef: []config.ResourceReference{{Name: "commonPipelineEnvironment", Param: "cfServiceKeyName"}},
+						ResourceRef: []config.ResourceReference{},
 						Scope:       []string{"PARAMETERS", "STAGES", "STEPS", "GENERAL"},
 						Type:        "string",
 						Mandatory:   false,

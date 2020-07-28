@@ -22,7 +22,6 @@ type abapEnvironmentASimulateOptions struct {
 	CVERS                  string `json:"CVERS,omitempty"`
 	Namespace              string `json:"Namespace,omitempty"`
 	PreviousDeliveryCommit string `json:"PreviousDeliveryCommit,omitempty"`
-	CfServiceKeyName       string `json:"cfServiceKeyName,omitempty"`
 }
 
 type abapEnvironmentASimulateCommonPipelineEnvironment struct {
@@ -32,7 +31,6 @@ type abapEnvironmentASimulateCommonPipelineEnvironment struct {
 	CVERS                  string
 	Namespace              string
 	PreviousDeliveryCommit string
-	cfServiceKeyName       string
 }
 
 func (p *abapEnvironmentASimulateCommonPipelineEnvironment) persist(path, resourceName string) {
@@ -47,7 +45,6 @@ func (p *abapEnvironmentASimulateCommonPipelineEnvironment) persist(path, resour
 		{category: "", name: "CVERS", value: p.CVERS},
 		{category: "", name: "Namespace", value: p.Namespace},
 		{category: "", name: "PreviousDeliveryCommit", value: p.PreviousDeliveryCommit},
-		{category: "", name: "cfServiceKeyName", value: p.cfServiceKeyName},
 	}
 
 	errCount := 0
@@ -126,7 +123,6 @@ func addAbapEnvironmentASimulateFlags(cmd *cobra.Command, stepConfig *abapEnviro
 	cmd.Flags().StringVar(&stepConfig.CVERS, "CVERS", os.Getenv("PIPER_CVERS"), "Cvers")
 	cmd.Flags().StringVar(&stepConfig.Namespace, "Namespace", os.Getenv("PIPER_Namespace"), "Namespace")
 	cmd.Flags().StringVar(&stepConfig.PreviousDeliveryCommit, "PreviousDeliveryCommit", os.Getenv("PIPER_PreviousDeliveryCommit"), "Previous delivery commit")
-	cmd.Flags().StringVar(&stepConfig.CfServiceKeyName, "cfServiceKeyName", os.Getenv("PIPER_cfServiceKeyName"), "Parameter of CloudFoundry Service Key to be created")
 
 	cmd.MarkFlagRequired("PackageType")
 	cmd.MarkFlagRequired("PackageName")
@@ -193,14 +189,6 @@ func abapEnvironmentASimulateMetadata() config.StepData {
 						Type:        "string",
 						Mandatory:   true,
 						Aliases:     []config.Alias{},
-					},
-					{
-						Name:        "cfServiceKeyName",
-						ResourceRef: []config.ResourceReference{},
-						Scope:       []string{"PARAMETERS", "STAGES", "STEPS", "GENERAL"},
-						Type:        "string",
-						Mandatory:   false,
-						Aliases:     []config.Alias{{Name: "cloudFoundry/serviceKeyName"}},
 					},
 				},
 			},
