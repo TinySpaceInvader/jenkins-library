@@ -174,3 +174,7 @@ spec:
         type: piperEnvironment
         params:
           - name: SAR_XML
+containers:
+  - name: cf
+    image: ppiper/cf-cli
+    imagePullPolicy: Never

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"errors"
 	"path"
 	"path/filepath"
 	"sort"
@@ -13,16 +12,18 @@ import (
 	"io/ioutil"
 	"net/http/cookiejar"
 
-	"github.com/SAP/jenkins-library/pkg/cloudfoundry"
+	"github.com/SAP/jenkins-library/pkg/abaputils"
 	"github.com/SAP/jenkins-library/pkg/command"
 	piperhttp "github.com/SAP/jenkins-library/pkg/http"
 	"github.com/SAP/jenkins-library/pkg/log"
 	"github.com/SAP/jenkins-library/pkg/telemetry"
+	"github.com/pkg/errors"
 )
 
 //todo:
 //durch groovy skripte gehen -> hab ich was vergessen?
 //aufräumen & logging
+//github.com/SAP/jenkins-library/pkg/abaputils
 func abapEnvironmentAssembly(config abapEnvironmentAssemblyOptions, telemetryData *telemetry.CustomData, commonPipelineEnvironment *abapEnvironmentAssemblyCommonPipelineEnvironment) {
 	// for command execution use Command
 	c := command.Command{}
@@ -43,7 +44,7 @@ func abapEnvironmentAssembly(config abapEnvironmentAssemblyOptions, telemetryDat
 
 func runAbapEnvironmentAssembly(config *abapEnvironmentAssemblyOptions, telemetryData *telemetry.CustomData, command command.ExecRunner, commonPipelineEnvironment *abapEnvironmentAssemblyCommonPipelineEnvironment) error {
 	// err := testDownload(config)
-	err := test1(config)
+	err := startBuildAndLogs(config)
 	// err := testGet(config)
 	return err
 }
@@ -198,66 +199,93 @@ func (in inputForPost) String() string {
 		in.values.String())
 }
 
-func (conn *connector) setConnectionDetails(config abapEnvironmentAssemblyOptions) error {
-	if config.Host == "" {
-		err := conn.setConnectionDetailsFromCF(config)
-		conn.Baseurl = conn.Baseurl + "/sap/opu/odata/BUILD/CORE_SRV"
-		return err
+func (conn *connector) setConnectionDetails(options abapEnvironmentAssemblyOptions) error {
+	// Mapping for options
+	subOptions := abaputils.AbapEnvironmentOptions{}
+
+	subOptions.CfAPIEndpoint = options.CfAPIEndpoint
+	subOptions.CfServiceInstance = options.CfServiceInstance
+	subOptions.CfServiceKeyName = options.CfServiceKeyName
+	subOptions.CfOrg = options.CfOrg
+	subOptions.CfSpace = options.CfSpace
+	subOptions.Host = options.Host
+	subOptions.Password = options.Password
+	subOptions.Username = options.Username
+
+	var c command.ExecRunner = &command.Command{}
+
+	//TODO funktioniert das?
+	// Determine the host, user and password, either via the input parameters or via a cloud foundry service key
+	connectionDetails, errorGetInfo := abaputils.GetAbapCommunicationArrangementInfo(subOptions, c, "/sap/opu/odata/BUILD/CORE_SRV")
+	if errorGetInfo != nil {
+		log.Entry().WithError(errorGetInfo).Fatal("Parameters for the ABAP Connection not available")
 	}
+
+	//TODO old
+	// if config.Host == "" {
+	// 	err := conn.setConnectionDetailsFromCF(config)
+	// 	conn.Baseurl = conn.Baseurl + "/sap/opu/odata/BUILD/CORE_SRV"
+	// 	return err
+	// }
 	conn.DownloadClient.SetOptions(piperhttp.ClientOptions{
-		Username: config.Username,
-		Password: config.Password,
+		Username: connectionDetails.User,
+		Password: connectionDetails.Password,
 	})
 	cookieJar, _ := cookiejar.New(nil)
+	//TODO soll das benutzt werden?
 	conn.Client.SetOptions(piperhttp.ClientOptions{
-		Username:  config.Username,
-		Password:  config.Password,
+		// MaxRequestDuration: 180 * time.Second,
+		Username:  connectionDetails.User,
+		Password:  connectionDetails.Password,
 		CookieJar: cookieJar,
 	})
-	conn.Baseurl = config.Host + "/sap/opu/odata/BUILD/CORE_SRV"
+	//TODO wieder rein
+	// conn.Baseurl = connectionDetails.URL
+	conn.Baseurl = "http://ldai3yi3.wdf.sap.corp:50034/sap/opu/odata/BUILD/CORE_SRV"
 	return nil
 }
 
-var cf = cloudfoundry.CFUtils{Exec: &command.Command{}}
-var cfReadServiceKey = cf.ReadServiceKeyAbapEnvironment
+//TODO das hatte ich fürs mocking benutzt -> checken wie ich das jetzt ersetze und dann löschen
+// var cf = cloudfoundry.CFUtils{Exec: &command.Command{}}
+// var cfReadServiceKey = cf.ReadServiceKeyAbapEnvironment
 
-func (conn *connector) setConnectionDetailsFromCF(config abapEnvironmentAssemblyOptions) error {
-	cfconfig := cloudfoundry.ServiceKeyOptions{
-		CfAPIEndpoint:     config.CfAPIEndpoint,
-		CfOrg:             config.CfOrg,
-		CfSpace:           config.CfSpace,
-		Username:          config.Username,
-		Password:          config.Password,
-		CfServiceInstance: config.CfServiceInstance,
-		CfServiceKey:      config.CfServiceKeyName,
-	}
-	if cfconfig.CfServiceInstance == "" || cfconfig.CfOrg == "" || cfconfig.CfAPIEndpoint == "" || cfconfig.CfSpace == "" || cfconfig.CfServiceKey == "" {
-		return errors.New("Parameters missing. Please provide EITHER the Host of the ABAP server OR the Cloud Foundry ApiEndpoint, Organization, Space, Service Instance and a corresponding Service Key for the Communication Scenario SAP_COM_0582")
-	}
-	abapServiceKey, err := cfReadServiceKey(cfconfig, true)
-	if err != nil {
-		return fmt.Errorf("Reading Service Key failed: %w", err)
-	}
-	//TODO delete
-	// log.Entry().Info("service key")
-	// log.Entry().Info(abapServiceKey.Abap)
-	// log.Entry().Info(abapServiceKey.Abap.Username)
-	// log.Entry().Info(abapServiceKey.Abap.Password)
-	// log.Entry().Info(abapServiceKey.URL)
+// func (conn *connector) setConnectionDetailsFromCF(config abapEnvironmentAssemblyOptions) error {
+// 	cfconfig := cloudfoundry.ServiceKeyOptions{
+// 		CfAPIEndpoint:     config.CfAPIEndpoint,
+// 		CfOrg:             config.CfOrg,
+// 		CfSpace:           config.CfSpace,
+// 		Username:          config.Username,
+// 		Password:          config.Password,
+// 		CfServiceInstance: config.CfServiceInstance,
+// 		CfServiceKey:      config.CfServiceKeyName,
+// 	}
+// 	if cfconfig.CfServiceInstance == "" || cfconfig.CfOrg == "" || cfconfig.CfAPIEndpoint == "" || cfconfig.CfSpace == "" || cfconfig.CfServiceKey == "" {
+// 		return errors.New("Parameters missing. Please provide EITHER the Host of the ABAP server OR the Cloud Foundry ApiEndpoint, Organization, Space, Service Instance and a corresponding Service Key for the Communication Scenario SAP_COM_0582")
+// 	}
+// 	abapServiceKey, err := cfReadServiceKey(cfconfig, true)
+// 	if err != nil {
+// 		return fmt.Errorf("Reading Service Key failed: %w", err)
+// 	}
+// 	//TODO delete
+// 	// log.Entry().Info("service key")
+// 	// log.Entry().Info(abapServiceKey.Abap)
+// 	// log.Entry().Info(abapServiceKey.Abap.Username)
+// 	// log.Entry().Info(abapServiceKey.Abap.Password)
+// 	// log.Entry().Info(abapServiceKey.URL)
 
-	conn.DownloadClient.SetOptions(piperhttp.ClientOptions{
-		Username: abapServiceKey.Abap.Username,
-		Password: abapServiceKey.Abap.Password,
-	})
-	cookieJar, _ := cookiejar.New(nil)
-	conn.Client.SetOptions(piperhttp.ClientOptions{
-		Username:  abapServiceKey.Abap.Username,
-		Password:  abapServiceKey.Abap.Password,
-		CookieJar: cookieJar,
-	})
-	conn.Baseurl = abapServiceKey.URL
-	return nil
-}
+// 	conn.DownloadClient.SetOptions(piperhttp.ClientOptions{
+// 		Username: abapServiceKey.Abap.Username,
+// 		Password: abapServiceKey.Abap.Password,
+// 	})
+// 	cookieJar, _ := cookiejar.New(nil)
+// 	conn.Client.SetOptions(piperhttp.ClientOptions{
+// 		Username:  abapServiceKey.Abap.Username,
+// 		Password:  abapServiceKey.Abap.Password,
+// 		CookieJar: cookieJar,
+// 	})
+// 	conn.Baseurl = abapServiceKey.URL
+// 	return nil
+// }
 
 func (conn *connector) setupAttributes(inputclient piperhttp.Sender) {
 	conn.Client = inputclient
@@ -275,32 +303,82 @@ func (conn *connector) getToken() error {
 		return fmt.Errorf("Fetching Xcsrf-Token failed: %w", err)
 	}
 	defer response.Body.Close()
-	token := response.Header.Get("X-Csrf-Token")
-	conn.Header["X-Csrf-Token"] = []string{token}
+	token := response.Header.Get("X-CSRF-Token")
+	conn.Header["X-CSRF-Token"] = []string{token}
 	return nil
 }
 
 func (conn connector) get(appendum string) ([]byte, error) {
 	url := conn.Baseurl + appendum
 	response, err := conn.Client.SendRequest("GET", url, nil, conn.Header, nil)
-	defer response.Body.Close()
 	if err != nil {
+		if response == nil {
+			return nil, err
+		}
+		defer response.Body.Close()
 		errorbody, _ := ioutil.ReadAll(response.Body)
-		return errorbody, fmt.Errorf("Get failed: %s", string(errorbody))
+		return errorbody, errors.Wrapf(err, "Get failed %v", string(errorbody))
+
 	}
+	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	return body, err
 }
 
+//TODO wieder zurück
 func (conn connector) post(importBody string) ([]byte, error) {
 	url := conn.Baseurl + "/builds"
-	response, err := conn.Client.SendRequest("POST", url, bytes.NewBuffer([]byte(importBody)), conn.Header, nil)
-	defer response.Body.Close()
+	//TODO delete
+	fmt.Println("URLs")
+	fmt.Println(url)
+	fmt.Println(conn.Baseurl)
+	fmt.Println("Body")
+	fmt.Println(importBody)
+	fmt.Println("Header")
+	fmt.Println(conn.Header)
+
+	byteBody := bytes.NewBuffer([]byte(importBody))
+	// response, err := conn.Client.SendRequest("POST", url, bytes.NewBuffer([]byte(importBody)), conn.Header, nil)
+	response, err := conn.Client.SendRequest("POST", url, byteBody, conn.Header, nil)
 	if err != nil {
+		if response == nil {
+			return nil, err
+		}
+		defer response.Body.Close()
 		errorbody, _ := ioutil.ReadAll(response.Body)
-		return nil, fmt.Errorf("Post failed: %s", string(errorbody))
+		return errorbody, errors.Wrapf(err, "Get failed %v", string(errorbody))
+
 	}
+	defer response.Body.Close()
+	// // defer response.Body.Close()
+	// // if response.Body == nil {
+	// // 	// return nil, fmt.Errorf("no body")
+	// // 	err1 := errors.New("no body")
+	// // 	return nil, err1
+	// // }
+	// if err != nil {
+	// 	// errorbody, _ := ioutil.ReadAll(response.Body)
+	// 	// return nil, fmt.Errorf("Post failed: %s", string(errorbody))
+	// 	errx := errors.New("read failed")
+	// 	return nil, errx
+	// }
+	// defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
+	//TODO liegt die null pointer referenz an err?
+	// return body, err
+
+	// var data jsonBuild
+	// json.Unmarshal(body, &data)
+	// fmt.Println(data.Build.BuildID)
+	// fmt.Println(data.Build.RunState)
+	// fmt.Println(data.Build.ResultState)
+	// fmt.Println(data.Build.Phase)
+	// fmt.Println(data.Build.Entitytype)
+	// fmt.Println(data.Build.Startedby)
+	// fmt.Println(data.Build.StartedAt)
+	// fmt.Println(data.Build.FinishedAt)
+
+	// err2 := errors.New("bullshit error")
 	return body, err
 }
 
@@ -323,10 +401,19 @@ func (b *build) start(phase string, inputValues values) error {
 		phase:  phase,
 		values: inputValues,
 	}.String()
-	body, err := b.connector.post(importBody)
+
+	// TODO warum gibt es den fehler??????????????????
+	var body []byte
+	var err error
+	// err2 = errors.New("bullshit error")
+	// fmt.Println(err2)
+	body, err = b.connector.post(importBody)
+	// err2 = errors.New("bullshit error")
+	// fmt.Println(err2)
 	if err != nil {
 		return err
 	}
+
 	var data jsonBuild
 	json.Unmarshal(body, &data)
 	b.BuildID = data.Build.BuildID
@@ -545,7 +632,7 @@ func (logging *logStruct) print() {
 
 // ############################## delete start ################################
 
-func test1(config *abapEnvironmentAssemblyOptions) error {
+func startBuildAndLogs(config *abapEnvironmentAssemblyOptions) error {
 
 	conn := new(connector)
 	conn.setupAttributes(&piperhttp.Client{})
@@ -593,7 +680,12 @@ func test1(config *abapEnvironmentAssemblyOptions) error {
 	//TODO phase build_aoi etc testten
 	// phase := "BUILD_" + config.PackageType
 	phase := "test1"
-	if err := build1.start(phase, valuesInput); err != nil {
+	// if err := build1.start(phase, valuesInput); err != nil {
+	// 	return err
+	// }
+
+	err = build1.start(phase, valuesInput)
+	if err != nil {
 		return err
 	}
 	build1.poll(15, 60)
@@ -659,12 +751,17 @@ func testGet(config *abapEnvironmentAssemblyOptions) error {
 	conn.setConnectionDetails(*config)
 	b := build{
 		connector: *conn,
-		BuildID:   "ABIFNLDCSQPOVJOUDMJG2M37OU",
+		BuildID:   "ABIFNLDCSQPNVNE2XXXMMBC2KY",
 	}
 	err := b.get()
 	if err != nil {
 		return err
 	}
+
+	fmt.Println(b.RunState)
+	fmt.Println(b.ResultState)
+
+	err = b.printLogs()
 	return err
 }
 
